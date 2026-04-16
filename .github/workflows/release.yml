@@ -35,7 +35,7 @@ jobs:
             mingw-w64-x86_64-ninja
           msystem: MINGW64
 
-      - name: Build Ztarry
+      - name: Build executables
         shell: msys2 {0}
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -59,22 +59,25 @@ jobs:
 
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Prepare release archive
+      - name: Prepare release assets
         id: package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path out -Force | Out-Null
           Copy-Item build/Ztarry.exe out/Ztarry.exe
-          Copy-Item README.md out/README.md
-          Compress-Archive -Path out/* -DestinationPath Ztarry-windows-x64.zip -Force
-          $hash = (Get-FileHash Ztarry-windows-x64.zip -Algorithm SHA256).Hash.ToLower()
-          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Copy-Item build/installer.exe out/installer.exe
+          $ztarryHash = (Get-FileHash out/Ztarry.exe -Algorithm SHA256).Hash.ToLower()
+          $installerHash = (Get-FileHash out/installer.exe -Algorithm SHA256).Hash.ToLower()
+          "ztarry_sha256=$ztarryHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "installer_sha256=$installerHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Ztarry-windows-x64
-          path: Ztarry-windows-x64.zip
+          path: |
+            out/Ztarry.exe
+            out/installer.exe
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -84,11 +87,15 @@ jobs:
           prerelease: ${{ github.ref_type != 'tag' }}
           draft: false
           files: |
-            Ztarry-windows-x64.zip
+            out/Ztarry.exe
+            out/installer.exe
           body: |
             Automated release for v${{ steps.version.outputs.version }}.
 
             Source ref: ${{ github.ref_name }}
 
-            SHA256 (Ztarry-windows-x64.zip):
-            ${{ steps.package.outputs.sha256 }}
+            SHA256 (Ztarry.exe):
+            ${{ steps.package.outputs.ztarry_sha256 }}
+
+            SHA256 (installer.exe):
+            ${{ steps.package.outputs.installer_sha256 }}
